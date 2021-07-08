@@ -19,7 +19,7 @@ Feature: Search filter on collections
     Given there is a DummyCar entity with related colors
     When I send a "GET" request to "/dummy_cars?colors.prop=red"
     Then the response status code should be 200
-    And the JSON should be deep equal to:
+    And the JSON should be equal to:
     """
     {
       "@context": "/contexts/DummyCar",
@@ -81,19 +81,7 @@ Feature: Search filter on collections
         "hydra:mapping": [
           {
             "@type": "IriTemplateMapping",
-            "variable": "availableAt[after]",
-            "property": "availableAt",
-            "required": false
-          },
-          {
-            "@type": "IriTemplateMapping",
             "variable": "availableAt[before]",
-            "property": "availableAt",
-            "required": false
-          },
-          {
-            "@type": "IriTemplateMapping",
-            "variable": "availableAt[strictly_after]",
             "property": "availableAt",
             "required": false
           },
@@ -105,26 +93,20 @@ Feature: Search filter on collections
           },
           {
             "@type": "IriTemplateMapping",
+            "variable": "availableAt[after]",
+            "property": "availableAt",
+            "required": false
+          },
+          {
+            "@type": "IriTemplateMapping",
+            "variable": "availableAt[strictly_after]",
+            "property": "availableAt",
+            "required": false
+          },
+          {
+            "@type": "IriTemplateMapping",
             "variable": "canSell",
             "property": "canSell",
-            "required": false
-          },
-          {
-            "@type": "IriTemplateMapping",
-            "variable": "colors",
-            "property": "colors",
-            "required": false
-          },
-          {
-            "@type": "IriTemplateMapping",
-            "variable": "colors.prop",
-            "property": "colors.prop",
-            "required": false
-          },
-          {
-            "@type": "IriTemplateMapping",
-            "variable": "colors[]",
-            "property": "colors",
             "required": false
           },
           {
@@ -147,8 +129,20 @@ Feature: Search filter on collections
           },
           {
             "@type": "IriTemplateMapping",
-            "variable": "name",
-            "property": "name",
+            "variable": "colors.prop",
+            "property": "colors.prop",
+            "required": false
+          },
+          {
+            "@type": "IriTemplateMapping",
+            "variable": "colors",
+            "property": "colors",
+            "required": false
+          },
+          {
+            "@type": "IriTemplateMapping",
+            "variable": "colors[]",
+            "property": "colors",
             "required": false
           },
           {
@@ -185,6 +179,12 @@ Feature: Search filter on collections
             "@type": "IriTemplateMapping",
             "variable": "uuid[]",
             "property": "uuid",
+            "required": false
+          },
+          {
+            "@type": "IriTemplateMapping",
+            "variable": "name",
+            "property": "name",
             "required": false
           }
         ]
@@ -272,6 +272,46 @@ Feature: Search filter on collections
     }
     """
 
+  Scenario: Search collection by name (partial multiple values)
+    Given there are 30 dummy objects
+    When I send a "GET" request to "/dummies?name[]=2&name[]=3"
+    Then the response status code should be 200
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON should be valid according to this schema:
+    """
+    {
+      "type": "object",
+      "properties": {
+        "@context": {"pattern": "^/contexts/Dummy$"},
+        "@id": {"pattern": "^/dummies$"},
+        "@type": {"pattern": "^hydra:Collection$"},
+        "hydra:member": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "@id": {
+                "oneOf": [
+                  {"pattern": "^/dummies/2$"},
+                  {"pattern": "^/dummies/3$"},
+                  {"pattern": "^/dummies/12$"}
+                ]
+              }
+            }
+          }
+        },
+        "hydra:view": {
+          "type": "object",
+          "properties": {
+            "@id": {"pattern": "^/dummies\\?name%5B%5D=2&name%5B%5D=3"},
+            "@type": {"pattern": "^hydra:PartialCollectionView$"}
+          }
+        }
+      }
+    }
+    """
+
   Scenario: Search collection by name (partial case insensitive)
     When I send a "GET" request to "/dummies?dummy=somedummytest1"
     Then the response status code should be 200
@@ -339,6 +379,45 @@ Feature: Search filter on collections
     }
     """
 
+  Scenario: Search collection by alias (start multiple values)
+    When I send a "GET" request to "/dummies?description[]=Sma&description[]=Not"
+    Then the response status code should be 200
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON should be valid according to this schema:
+    """
+    {
+      "type": "object",
+      "properties": {
+        "@context": {"pattern": "^/contexts/Dummy$"},
+        "@id": {"pattern": "^/dummies$"},
+        "@type": {"pattern": "^hydra:Collection$"},
+        "hydra:member": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "@id": {
+                "oneOf": [
+                  {"pattern": "^/dummies/1$"},
+                  {"pattern": "^/dummies/2$"},
+                  {"pattern": "^/dummies/3$"}
+                ]
+              }
+            }
+          }
+        },
+        "hydra:view": {
+          "type": "object",
+          "properties": {
+            "@id": {"pattern": "^/dummies\\?description%5B%5D=Sma&description%5B%5D=Not"},
+            "@type": {"pattern": "^hydra:PartialCollectionView$"}
+          }
+        }
+      }
+    }
+    """
+
   @sqlite
   Scenario: Search collection by description (word_start)
     When I send a "GET" request to "/dummies?description=smart"
@@ -372,6 +451,46 @@ Feature: Search filter on collections
           "type": "object",
           "properties": {
             "@id": {"pattern": "^/dummies\\?description=smart"},
+            "@type": {"pattern": "^hydra:PartialCollectionView$"}
+          }
+        }
+      }
+    }
+    """
+
+  @sqlite
+  Scenario: Search collection by description (word_start multiple values)
+    When I send a "GET" request to "/dummies?description[]=smart&description[]=so"
+    Then the response status code should be 200
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON should be valid according to this schema:
+    """
+    {
+      "type": "object",
+      "properties": {
+        "@context": {"pattern": "^/contexts/Dummy$"},
+        "@id": {"pattern": "^/dummies$"},
+        "@type": {"pattern": "^hydra:Collection$"},
+        "hydra:member": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "@id": {
+                "oneOf": [
+                  {"pattern": "^/dummies/1$"},
+                  {"pattern": "^/dummies/2$"},
+                  {"pattern": "^/dummies/3$"}
+                ]
+              }
+            }
+          }
+        },
+        "hydra:view": {
+          "type": "object",
+          "properties": {
+            "@id": {"pattern": "^/dummies\\?description%5B%5D=smart&description%5B%5D=so"},
             "@type": {"pattern": "^hydra:PartialCollectionView$"}
           }
         }
@@ -419,6 +538,52 @@ Feature: Search filter on collections
       }
     }
     """
+
+  @!postgres
+  @!mongodb
+  @!lowest
+  Scenario: Search collection by binary UUID (Ramsey)
+    Given there is a ramsey identified resource with binary uuid "c19900a9-d2b2-45bf-b040-05c72d321282"
+    And there is a ramsey identified resource with binary uuid "a96cb2ed-e3dc-4449-9842-830e770cdecc"
+    When I send a "GET" request to "/ramsey_uuid_binary_dummies?id=c19900a9-d2b2-45bf-b040-05c72d321282"
+    Then the response status code should be 200
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON node "hydra:totalItems" should be equal to "1"
+
+  @!postgres
+  @!mongodb
+  @!lowest
+  Scenario: Search collection by binary UUID (Ramsey) (multiple values)
+    Given there is a ramsey identified resource with binary uuid "f71a6469-1bfc-4945-bad1-d6092f09a8c3"
+    When I send a "GET" request to "/ramsey_uuid_binary_dummies?id[]=c19900a9-d2b2-45bf-b040-05c72d321282&id[]=f71a6469-1bfc-4945-bad1-d6092f09a8c3"
+    Then the response status code should be 200
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON node "hydra:totalItems" should be equal to "2"
+
+  @!postgres
+  @!mongodb
+  @!lowest
+  Scenario: Search collection by related binary UUID (Ramsey)
+    Given there is a ramsey identified resource with binary uuid "56fa36c3-2b5e-4813-9e3a-b0bbe2ab5553" having a related resource with binary uuid "02227dc6-a371-4b8b-a34c-bbbf921b8ebd"
+    And there is a ramsey identified resource with binary uuid "4d796212-4b26-4e19-b092-a32d990b1e7e" having a related resource with binary uuid "31f64c33-6061-4fc1-b0e8-f4711b607c7d"
+    When I send a "GET" request to "/ramsey_uuid_binary_dummies?relateds=02227dc6-a371-4b8b-a34c-bbbf921b8ebd"
+    Then the response status code should be 200
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON node "hydra:totalItems" should be equal to "1"
+
+  @!postgres
+  @!mongodb
+  @!lowest
+  Scenario: Search collection by related binary UUID (Ramsey) (multiple values)
+    Given there is a ramsey identified resource with binary uuid "3248c908-a89d-483a-b75f-25888730d391" having a related resource with binary uuid "d7b2e909-37b0-411e-814c-74e044afbccb"
+    When I send a "GET" request to "/ramsey_uuid_binary_dummies?relateds[]=02227dc6-a371-4b8b-a34c-bbbf921b8ebd&relateds[]=d7b2e909-37b0-411e-814c-74e044afbccb"
+    Then the response status code should be 200
+    And the response should be in JSON
+    And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
+    And the JSON node "hydra:totalItems" should be equal to "2"
 
   Scenario: Search for entities within an impossible range
     When I send a "GET" request to "/dummies?name=MuYm"
@@ -805,7 +970,6 @@ Feature: Search filter on collections
     When I send a "GET" request to "/converted_owners?name_converted.name_converted=Converted 3"
     Then the response status code should be 200
     And the header "Content-Type" should be equal to "application/ld+json; charset=utf-8"
-    Then print last JSON response
     And the JSON should be valid according to this schema:
     """
     {

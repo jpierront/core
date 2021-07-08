@@ -21,6 +21,7 @@ use ApiPlatform\Core\GraphQl\Resolver\Util\IdentifierTrait;
 use ApiPlatform\Core\GraphQl\Serializer\ItemNormalizer;
 use ApiPlatform\Core\GraphQl\Serializer\SerializerContextBuilderInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
+use ApiPlatform\Core\Util\ArrayTrait;
 use ApiPlatform\Core\Util\ClassInfoTrait;
 use GraphQL\Type\Definition\ResolveInfo;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -34,6 +35,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class ReadStage implements ReadStageInterface
 {
+    use ArrayTrait;
     use ClassInfoTrait;
     use IdentifierTrait;
 
@@ -93,9 +95,10 @@ final class ReadStage implements ReadStageInterface
         $source = $context['source'];
         /** @var ResolveInfo $info */
         $info = $context['info'];
-        if (isset($source[$rootProperty = $info->fieldName], $source[ItemNormalizer::ITEM_IDENTIFIERS_KEY])) {
+        if (isset($source[$rootProperty = $info->fieldName], $source[ItemNormalizer::ITEM_IDENTIFIERS_KEY], $source[ItemNormalizer::ITEM_RESOURCE_CLASS_KEY])) {
             $rootResolvedFields = $source[ItemNormalizer::ITEM_IDENTIFIERS_KEY];
-            $subresourceCollection = $this->getSubresource($rootClass, $rootResolvedFields, $rootProperty, $resourceClass, $normalizationContext, $operationName);
+            $rootResolvedClass = $source[ItemNormalizer::ITEM_RESOURCE_CLASS_KEY];
+            $subresourceCollection = $this->getSubresource($rootResolvedClass, $rootResolvedFields, $rootProperty, $resourceClass, $normalizationContext, $operationName);
             if (!is_iterable($subresourceCollection)) {
                 throw new \UnexpectedValueException('Expected subresource collection to be iterable.');
             }
@@ -133,6 +136,22 @@ final class ReadStage implements ReadStageInterface
                 if (strpos($name, '_list')) {
                     $name = substr($name, 0, \strlen($name) - \strlen('_list'));
                 }
+
+                // If the value contains arrays, we need to merge them for the filters to understand this syntax, proper to GraphQL to preserve the order of the arguments.
+                if ($this->isSequentialArrayOfArrays($value)) {
+                    if (\count($value[0]) > 1) {
+                        $deprecationMessage = "The filter syntax \"$name: {";
+                        $filterArgsOld = [];
+                        $filterArgsNew = [];
+                        foreach ($value[0] as $filterArgName => $filterArgValue) {
+                            $filterArgsOld[] = "$filterArgName: \"$filterArgValue\"";
+                            $filterArgsNew[] = sprintf('{%s: "%s"}', $filterArgName, $filterArgValue);
+                        }
+                        $deprecationMessage .= sprintf('%s}" is deprecated since API Platform 2.6, use the following syntax instead: "%s: [%s]".', implode(', ', $filterArgsOld), $name, implode(', ', $filterArgsNew));
+                        @trigger_error($deprecationMessage, \E_USER_DEPRECATED);
+                    }
+                    $value = array_merge(...$value);
+                }
                 $filters[$name] = $this->getNormalizedFilters($value);
             }
 
@@ -148,12 +167,12 @@ final class ReadStage implements ReadStageInterface
     /**
      * @return iterable|object|null
      */
-    private function getSubresource(string $rootClass, array $rootResolvedFields, string $rootProperty, string $subresourceClass, array $normalizationContext, string $operationName)
+    private function getSubresource(string $rootResolvedClass, array $rootResolvedFields, string $rootProperty, string $subresourceClass, array $normalizationContext, string $operationName)
     {
         $resolvedIdentifiers = [];
         $rootIdentifiers = array_keys($rootResolvedFields);
         foreach ($rootIdentifiers as $rootIdentifier) {
-            $resolvedIdentifiers[] = [$rootIdentifier, $rootClass];
+            $resolvedIdentifiers[$rootIdentifier] = [$rootResolvedClass, $rootIdentifier];
         }
 
         return $this->subresourceDataProvider->getSubresource($subresourceClass, $rootResolvedFields, $normalizationContext + [

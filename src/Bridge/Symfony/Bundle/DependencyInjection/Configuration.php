@@ -27,6 +27,7 @@ use GraphQL\GraphQL;
 use Symfony\Bundle\FullStack;
 use Symfony\Bundle\MercureBundle\MercureBundle;
 use Symfony\Bundle\TwigBundle\TwigBundle;
+use Symfony\Component\Config\Definition\BaseNode;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
@@ -87,10 +88,11 @@ final class Configuration implements ConfigurationInterface
                 ->booleanNode('show_webby')->defaultTrue()->info('If true, show Webby on the documentation page')->end()
                 ->scalarNode('default_operation_path_resolver')
                     ->defaultValue('api_platform.operation_path_resolver.underscore')
-                    ->setDeprecated('The use of the `default_operation_path_resolver` has been deprecated in 2.1 and will be removed in 3.0. Use `path_segment_name_generator` instead.')
+                    ->setDeprecated(...$this->buildDeprecationArgs('2.1', 'The use of the `default_operation_path_resolver` has been deprecated in 2.1 and will be removed in 3.0. Use `path_segment_name_generator` instead.'))
                     ->info('Specify the default operation path resolver to use for generating resources operations path.')
                 ->end()
                 ->scalarNode('name_converter')->defaultNull()->info('Specify a name converter to use.')->end()
+                ->scalarNode('asset_package')->defaultNull()->info('Specify an asset package name to use.')->end()
                 ->scalarNode('path_segment_name_generator')->defaultValue('api_platform.path_segment_name_generator.underscore')->info('Specify a path name generator to use.')->end()
                 ->booleanNode('allow_plain_identifiers')->defaultFalse()->info('Allow plain identifiers, for example "id" instead of "@id" when denormalizing a relation.')->end()
                 ->arrayNode('validator')
@@ -108,10 +110,14 @@ final class Configuration implements ConfigurationInterface
                         ->booleanNode('force_eager')->defaultTrue()->info('Force join on every relation. If disabled, it will only join relations having the EAGER fetch mode.')->end()
                     ->end()
                 ->end()
-                ->booleanNode('enable_fos_user')->defaultValue(class_exists(FOSUserBundle::class))->info('Enable the FOSUserBundle integration.')->end()
+                ->booleanNode('enable_fos_user')
+                    ->defaultValue(class_exists(FOSUserBundle::class))
+                    ->setDeprecated(...$this->buildDeprecationArgs('2.5', 'FOSUserBundle is not actively maintained anymore. Enabling the FOSUserBundle integration has been deprecated in 2.5 and will be removed in 3.0.'))
+                    ->info('Enable the FOSUserBundle integration.')
+                ->end()
                 ->booleanNode('enable_nelmio_api_doc')
                     ->defaultFalse()
-                    ->setDeprecated('Enabling the NelmioApiDocBundle integration has been deprecated in 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.')
+                    ->setDeprecated(...$this->buildDeprecationArgs('2.2', 'Enabling the NelmioApiDocBundle integration has been deprecated in 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.'))
                     ->info('Enable the NelmioApiDocBundle integration.')
                 ->end()
                 ->booleanNode('enable_swagger')->defaultTrue()->info('Enable the Swagger documentation and export.')->end()
@@ -131,37 +137,37 @@ final class Configuration implements ConfigurationInterface
                             ->addDefaultsIfNotSet()
                             ->children()
                                 ->booleanNode('enabled')
-                                    ->setDeprecated('The use of the `collection.pagination.enabled` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_enabled` instead.')
+                                    ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `collection.pagination.enabled` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_enabled` instead.'))
                                     ->defaultTrue()
                                     ->info('To enable or disable pagination for all resource collections by default.')
                                 ->end()
                                 ->booleanNode('partial')
-                                    ->setDeprecated('The use of the `collection.pagination.partial` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_partial` instead.')
+                                    ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `collection.pagination.partial` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_partial` instead.'))
                                     ->defaultFalse()
                                     ->info('To enable or disable partial pagination for all resource collections by default when pagination is enabled.')
                                 ->end()
                                 ->booleanNode('client_enabled')
-                                    ->setDeprecated('The use of the `collection.pagination.client_enabled` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_client_enabled` instead.')
+                                    ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `collection.pagination.client_enabled` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_client_enabled` instead.'))
                                     ->defaultFalse()
                                     ->info('To allow the client to enable or disable the pagination.')
                                 ->end()
                                 ->booleanNode('client_items_per_page')
-                                    ->setDeprecated('The use of the `collection.pagination.client_items_per_page` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_client_items_per_page` instead.')
+                                    ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `collection.pagination.client_items_per_page` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_client_items_per_page` instead.'))
                                     ->defaultFalse()
                                     ->info('To allow the client to set the number of items per page.')
                                 ->end()
                                 ->booleanNode('client_partial')
-                                    ->setDeprecated('The use of the `collection.pagination.client_partial` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_client_partial` instead.')
+                                    ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `collection.pagination.client_partial` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_client_partial` instead.'))
                                     ->defaultFalse()
                                     ->info('To allow the client to enable or disable partial pagination.')
                                 ->end()
                                 ->integerNode('items_per_page')
-                                    ->setDeprecated('The use of the `collection.pagination.items_per_page` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_items_per_page` instead.')
+                                    ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `collection.pagination.items_per_page` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_items_per_page` instead.'))
                                     ->defaultValue(30)
                                     ->info('The default number of items per page.')
                                 ->end()
                                 ->integerNode('maximum_items_per_page')
-                                    ->setDeprecated('The use of the `collection.pagination.maximum_items_per_page` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_maximum_items_per_page` instead.')
+                                    ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `collection.pagination.maximum_items_per_page` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.pagination_maximum_items_per_page` instead.'))
                                     ->defaultNull()
                                     ->info('The maximum number of items per page.')
                                 ->end()
@@ -195,6 +201,7 @@ final class Configuration implements ConfigurationInterface
         $this->addMercureSection($rootNode);
         $this->addMessengerSection($rootNode);
         $this->addElasticsearchSection($rootNode);
+        $this->addOpenApiSection($rootNode);
 
         $this->addExceptionToStatusSection($rootNode);
 
@@ -248,6 +255,7 @@ final class Configuration implements ConfigurationInterface
                         ->scalarNode('flow')->defaultValue('application')->info('The oauth flow grant type.')->end()
                         ->scalarNode('tokenUrl')->defaultValue('/oauth/v2/token')->info('The oauth token url.')->end()
                         ->scalarNode('authorizationUrl')->defaultValue('/oauth/v2/auth')->info('The oauth authentication url.')->end()
+                        ->scalarNode('refreshUrl')->defaultValue('/oauth/v2/refresh')->info('The oauth refresh url.')->end()
                         ->arrayNode('scopes')
                             ->prototype('scalar')->end()
                         ->end()
@@ -295,7 +303,7 @@ final class Configuration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->arrayNode('versions')
-                            ->info('The active versions of OpenAPI to be exported or used in the swagger_ui. The first value is the default.')
+                            ->info('The active versions of Open API to be exported or used in the swagger_ui. The first value is the default.')
                             ->defaultValue($defaultVersions)
                             ->beforeNormalization()
                                 ->always(static function ($v) {
@@ -311,7 +319,7 @@ final class Configuration implements ConfigurationInterface
                                 })
                             ->end()
                             ->validate()
-                                ->ifTrue(function ($v) use ($defaultVersions) {
+                                ->ifTrue(static function ($v) use ($defaultVersions) {
                                     return $v !== array_intersect($v, $defaultVersions);
                                 })
                                 ->thenInvalid(sprintf('Only the versions %s are supported. Got %s.', implode(' and ', $defaultVersions), '%s'))
@@ -344,22 +352,22 @@ final class Configuration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->booleanNode('etag')
-                            ->setDeprecated('The use of the `http_cache.etag` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.etag` instead.')
+                            ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `http_cache.etag` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.etag` instead.'))
                             ->defaultTrue()
                             ->info('Automatically generate etags for API responses.')
                         ->end()
                         ->integerNode('max_age')
-                            ->setDeprecated('The use of the `http_cache.max_age` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.max_age` instead.')
+                            ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `http_cache.max_age` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.max_age` instead.'))
                             ->defaultNull()
                             ->info('Default value for the response max age.')
                         ->end()
                         ->integerNode('shared_max_age')
-                            ->setDeprecated('The use of the `http_cache.shared_max_age` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.shared_max_age` instead.')
+                            ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `http_cache.shared_max_age` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.shared_max_age` instead.'))
                             ->defaultNull()
                             ->info('Default value for the response shared (proxy) max age.')
                         ->end()
                         ->arrayNode('vary')
-                            ->setDeprecated('The use of the `http_cache.vary` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.vary` instead.')
+                            ->setDeprecated(...$this->buildDeprecationArgs('2.6', 'The use of the `http_cache.vary` has been deprecated in 2.6 and will be removed in 3.0. Use `defaults.cache_headers.vary` instead.'))
                             ->defaultValue(['Accept'])
                             ->prototype('scalar')->end()
                             ->info('Default values of the "Vary" HTTP header.')
@@ -381,7 +389,7 @@ final class Configuration implements ConfigurationInterface
                                 ->variableNode('request_options')
                                     ->defaultValue([])
                                     ->validate()
-                                        ->ifTrue(function ($v) { return false === \is_array($v); })
+                                        ->ifTrue(static function ($v) { return false === \is_array($v); })
                                         ->thenInvalid('The request_options parameter must be an array.')
                                     ->end()
                                     ->info('To pass options to the client charged with the request.')
@@ -460,6 +468,35 @@ final class Configuration implements ConfigurationInterface
             ->end();
     }
 
+    private function addOpenApiSection(ArrayNodeDefinition $rootNode): void
+    {
+        $rootNode
+            ->children()
+                ->arrayNode('openapi')
+                    ->addDefaultsIfNotSet()
+                        ->children()
+                        ->arrayNode('contact')
+                        ->addDefaultsIfNotSet()
+                            ->children()
+                                ->scalarNode('name')->defaultNull()->info('The identifying name of the contact person/organization.')->end()
+                                ->scalarNode('url')->defaultNull()->info('The URL pointing to the contact information. MUST be in the format of a URL.')->end()
+                                ->scalarNode('email')->defaultNull()->info('The email address of the contact person/organization. MUST be in the format of an email address.')->end()
+                            ->end()
+                        ->end()
+                        ->booleanNode('backward_compatibility_layer')->defaultTrue()->info('Enable this to decorate the "api_platform.swagger.normalizer.documentation" instead of decorating the OpenAPI factory.')->end()
+                        ->scalarNode('termsOfService')->defaultNull()->info('A URL to the Terms of Service for the API. MUST be in the format of a URL.')->end()
+                        ->arrayNode('license')
+                        ->addDefaultsIfNotSet()
+                            ->children()
+                                ->scalarNode('name')->defaultNull()->info('The license name used for the API.')->end()
+                                ->scalarNode('url')->defaultNull()->info('URL to the license used for the API. MUST be in the format of a URL.')->end()
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
+            ->end();
+    }
+
     /**
      * @throws InvalidConfigurationException
      */
@@ -479,14 +516,14 @@ final class Configuration implements ConfigurationInterface
                     ->useAttributeAsKey('exception_class')
                     ->beforeNormalization()
                         ->ifArray()
-                        ->then(function (array $exceptionToStatus) {
+                        ->then(static function (array $exceptionToStatus) {
                             foreach ($exceptionToStatus as &$httpStatusCode) {
                                 if (\is_int($httpStatusCode)) {
                                     continue;
                                 }
 
                                 if (\defined($httpStatusCodeConstant = sprintf('%s::%s', Response::class, $httpStatusCode))) {
-                                    @trigger_error(sprintf('Using a string "%s" as a constant of the "%s" class is deprecated since API Platform 2.1 and will not be possible anymore in API Platform 3. Use the Symfony\'s custom YAML extension for PHP constants instead (i.e. "!php/const %s").', $httpStatusCode, Response::class, $httpStatusCodeConstant), E_USER_DEPRECATED);
+                                    @trigger_error(sprintf('Using a string "%s" as a constant of the "%s" class is deprecated since API Platform 2.1 and will not be possible anymore in API Platform 3. Use the Symfony\'s custom YAML extension for PHP constants instead (i.e. "!php/const %s").', $httpStatusCode, Response::class, $httpStatusCodeConstant), \E_USER_DEPRECATED);
 
                                     $httpStatusCode = \constant($httpStatusCodeConstant);
                                 }
@@ -498,7 +535,7 @@ final class Configuration implements ConfigurationInterface
                     ->prototype('integer')->end()
                     ->validate()
                         ->ifArray()
-                        ->then(function (array $exceptionToStatus) {
+                        ->then(static function (array $exceptionToStatus) {
                             foreach ($exceptionToStatus as $httpStatusCode) {
                                 if ($httpStatusCode < 100 || $httpStatusCode >= 600) {
                                     throw new InvalidConfigurationException(sprintf('The HTTP status code "%s" is not valid.', $httpStatusCode));
@@ -523,7 +560,7 @@ final class Configuration implements ConfigurationInterface
                     ->useAttributeAsKey('format')
                     ->beforeNormalization()
                         ->ifArray()
-                        ->then(function ($v) {
+                        ->then(static function ($v) {
                             foreach ($v as $format => $value) {
                                 if (isset($value['mime_types'])) {
                                     continue;
@@ -552,7 +589,7 @@ final class Configuration implements ConfigurationInterface
         $defaultsNode
             ->ignoreExtraKeys()
             ->beforeNormalization()
-            ->always(function (array $defaults) use ($nameConverter) {
+            ->always(static function (array $defaults) use ($nameConverter) {
                 $normalizedDefaults = [];
                 foreach ($defaults as $option => $value) {
                     $option = $nameConverter->normalize($option);
@@ -562,9 +599,17 @@ final class Configuration implements ConfigurationInterface
                 return $normalizedDefaults;
             });
 
-        foreach (ApiResource::CONFIGURABLE_DEFAULTS as $attribute) {
+        [$publicProperties, $configurableAttributes] = ApiResource::getConfigMetadata();
+        foreach (array_merge($publicProperties, $configurableAttributes) as $attribute => $_) {
             $snakeCased = $nameConverter->normalize($attribute);
             $defaultsNode->children()->variableNode($snakeCased);
         }
+    }
+
+    private function buildDeprecationArgs(string $version, string $message): array
+    {
+        return method_exists(BaseNode::class, 'getDeprecation')
+            ? ['api-platform/core', $version, $message]
+            : [$message];
     }
 }

@@ -13,7 +13,9 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Bridge\Symfony\Bundle\DependencyInjection;
 
+use ApiPlatform\Core\Annotation\ApiResource;
 use ApiPlatform\Core\Api\FilterInterface;
+use ApiPlatform\Core\Api\UrlGeneratorInterface;
 use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Extension\AggregationCollectionExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Extension\AggregationItemExtensionInterface;
 use ApiPlatform\Core\Bridge\Doctrine\MongoDbOdm\Filter\AbstractFilter as DoctrineMongoDbOdmAbstractFilter;
@@ -29,7 +31,9 @@ use ApiPlatform\Core\DataPersister\DataPersisterInterface;
 use ApiPlatform\Core\DataProvider\CollectionDataProviderInterface;
 use ApiPlatform\Core\DataProvider\ItemDataProviderInterface;
 use ApiPlatform\Core\DataProvider\SubresourceDataProviderInterface;
+use ApiPlatform\Core\DataTransformer\DataTransformerInitializerInterface;
 use ApiPlatform\Core\DataTransformer\DataTransformerInterface;
+use ApiPlatform\Core\GraphQl\Error\ErrorHandlerInterface;
 use ApiPlatform\Core\GraphQl\Resolver\MutationResolverInterface;
 use ApiPlatform\Core\GraphQl\Resolver\QueryCollectionResolverInterface;
 use ApiPlatform\Core\GraphQl\Resolver\QueryItemResolverInterface;
@@ -37,19 +41,20 @@ use ApiPlatform\Core\GraphQl\Type\Definition\TypeInterface as GraphQlTypeInterfa
 use Doctrine\Common\Annotations\Annotation;
 use phpDocumentor\Reflection\DocBlockFactoryInterface;
 use Ramsey\Uuid\Uuid;
-use Symfony\Component\BrowserKit\AbstractBrowser;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\Config\Resource\DirectoryResource;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Exception\RuntimeException;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Finder\Finder;
-use Symfony\Component\HttpClient\HttpClientTrait;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
+use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter;
+use Symfony\Component\Uid\AbstractUid;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Yaml\Yaml;
 
@@ -101,6 +106,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $this->registerCommonConfiguration($container, $config, $loader, $formats, $patchFormats, $errorFormats);
         $this->registerMetadataConfiguration($container, $config, $loader);
         $this->registerOAuthConfiguration($container, $config);
+        $this->registerOpenApiConfiguration($container, $config);
         $this->registerSwaggerConfiguration($container, $config, $loader);
         $this->registerJsonApiConfiguration($formats, $loader);
         $this->registerJsonLdHydraConfiguration($container, $formats, $loader, $config['enable_docs']);
@@ -130,14 +136,6 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
             ->addTag('api_platform.subresource_data_provider');
         $container->registerForAutoconfiguration(FilterInterface::class)
             ->addTag('api_platform.filter');
-
-        if ($container->hasParameter('test.client.parameters')) {
-            $loader->load('test.xml');
-
-            if (!class_exists(AbstractBrowser::class) || !trait_exists(HttpClientTrait::class)) {
-                $container->removeDefinition('test.api_platform.client');
-            }
-        }
     }
 
     private function registerCommonConfiguration(ContainerBuilder $container, array $config, XmlFileLoader $loader, array $formats, array $patchFormats, array $errorFormats): void
@@ -147,8 +145,25 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $loader->load('data_provider.xml');
         $loader->load('filter.xml');
 
+        $container->getDefinition('api_platform.operation_method_resolver')
+            ->setDeprecated(...$this->buildDeprecationArgs('2.5', 'The "%service_id%" service is deprecated since API Platform 2.5.'));
+        $container->getDefinition('api_platform.formats_provider')
+            ->setDeprecated(...$this->buildDeprecationArgs('2.5', 'The "%service_id%" service is deprecated since API Platform 2.5.'));
+        $container->getAlias('ApiPlatform\Core\Api\OperationAwareFormatsProviderInterface')
+            ->setDeprecated(...$this->buildDeprecationArgs('2.5', 'The "%alias_id%" alias is deprecated since API Platform 2.5.'));
+        $container->getDefinition('api_platform.operation_path_resolver.underscore')
+            ->setDeprecated(...$this->buildDeprecationArgs('2.1', 'The "%service_id%" service is deprecated since API Platform 2.1 and will be removed in 3.0. Use "api_platform.path_segment_name_generator.underscore" instead.'));
+        $container->getDefinition('api_platform.operation_path_resolver.dash')
+            ->setDeprecated(...$this->buildDeprecationArgs('2.1', 'The "%service_id%" service is deprecated since API Platform 2.1 and will be removed in 3.0. Use "api_platform.path_segment_name_generator.dash" instead.'));
+        $container->getDefinition('api_platform.filters')
+            ->setDeprecated(...$this->buildDeprecationArgs('2.1', 'The "%service_id%" service is deprecated since 2.1 and will be removed in 3.0. Use the "api_platform.filter_locator" service instead.'));
+
         if (class_exists(Uuid::class)) {
             $loader->load('ramsey_uuid.xml');
+        }
+
+        if (class_exists(AbstractUid::class)) {
+            $loader->load('symfony_uid.xml');
         }
 
         $container->setParameter('api_platform.enable_entrypoint', $config['enable_entrypoint']);
@@ -157,6 +172,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $container->setParameter('api_platform.description', $config['description']);
         $container->setParameter('api_platform.version', $config['version']);
         $container->setParameter('api_platform.show_webby', $config['show_webby']);
+        $container->setParameter('api_platform.url_generation_strategy', $config['defaults']['url_generation_strategy'] ?? UrlGeneratorInterface::ABS_PATH);
         $container->setParameter('api_platform.exception_to_status', $config['exception_to_status']);
         $container->setParameter('api_platform.formats', $formats);
         $container->setParameter('api_platform.patch_formats', $patchFormats);
@@ -169,7 +185,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $container->setParameter('api_platform.collection.exists_parameter_name', $config['collection']['exists_parameter_name']);
         $container->setParameter('api_platform.collection.order', $config['defaults']['order'] ?? $config['collection']['order']);
         $container->setParameter('api_platform.collection.order_parameter_name', $config['collection']['order_parameter_name']);
-        $container->setParameter('api_platform.collection.pagination.enabled', $this->isConfigEnabled($container, $config['defaults']['pagination_enabled'] ?? $config['collection']['pagination']));
+        $container->setParameter('api_platform.collection.pagination.enabled', $config['defaults']['pagination_enabled'] ?? $this->isConfigEnabled($container, $config['collection']['pagination']));
         $container->setParameter('api_platform.collection.pagination.partial', $config['defaults']['pagination_partial'] ?? $config['collection']['pagination']['partial']);
         $container->setParameter('api_platform.collection.pagination.client_enabled', $config['defaults']['pagination_client_enabled'] ?? $config['collection']['pagination']['client_enabled']);
         $container->setParameter('api_platform.collection.pagination.client_items_per_page', $config['defaults']['pagination_client_items_per_page'] ?? $config['collection']['pagination']['client_items_per_page']);
@@ -194,6 +210,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         if ($config['name_converter']) {
             $container->setAlias('api_platform.name_converter', $config['name_converter']);
         }
+        $container->setParameter('api_platform.asset_package', $config['asset_package']);
         $container->setParameter('api_platform.defaults', $this->normalizeDefaults($config['defaults'] ?? []));
     }
 
@@ -217,21 +234,20 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
 
     private function normalizeDefaults(array $defaults): array
     {
-        $normalizedDefaults = ['attributes' => []];
-        $rootLevelOptions = [
-            'description',
-            'iri',
-            'item_operations',
-            'collection_operations',
-            'graphql',
-        ];
+        $normalizedDefaults = ['attributes' => $defaults['attributes'] ?? []];
+        unset($defaults['attributes']);
 
+        [$publicProperties,] = ApiResource::getConfigMetadata();
+
+        $nameConverter = new CamelCaseToSnakeCaseNameConverter();
         foreach ($defaults as $option => $value) {
-            if (\in_array($option, $rootLevelOptions, true)) {
+            if (isset($publicProperties[$nameConverter->denormalize($option)])) {
                 $normalizedDefaults[$option] = $value;
-            } else {
-                $normalizedDefaults['attributes'][$option] = $value;
+
+                continue;
             }
+
+            $normalizedDefaults['attributes'][$option] = $value;
         }
 
         return $normalizedDefaults;
@@ -348,6 +364,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $container->setParameter('api_platform.oauth.flow', $config['oauth']['flow']);
         $container->setParameter('api_platform.oauth.tokenUrl', $config['oauth']['tokenUrl']);
         $container->setParameter('api_platform.oauth.authorizationUrl', $config['oauth']['authorizationUrl']);
+        $container->setParameter('api_platform.oauth.refreshUrl', $config['oauth']['refreshUrl']);
         $container->setParameter('api_platform.oauth.scopes', $config['oauth']['scopes']);
     }
 
@@ -358,11 +375,17 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
     {
         $container->setParameter('api_platform.swagger.versions', $config['swagger']['versions']);
 
-        if (empty($config['swagger']['versions'])) {
-            return;
+        if (!$config['enable_swagger'] && $config['enable_swagger_ui']) {
+            throw new RuntimeException('You can not enable the Swagger UI without enabling Swagger, fix this by enabling swagger via the configuration "enable_swagger: true".');
         }
 
         $loader->load('json_schema.xml');
+
+        if (!$config['enable_swagger']) {
+            return;
+        }
+
+        $loader->load('openapi.xml');
         $loader->load('swagger.xml');
         $loader->load('swagger-ui.xml');
 
@@ -374,6 +397,10 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $container->setParameter('api_platform.enable_swagger_ui', $config['enable_swagger_ui']);
         $container->setParameter('api_platform.enable_re_doc', $config['enable_re_doc']);
         $container->setParameter('api_platform.swagger.api_keys', $config['swagger']['api_keys']);
+
+        if (true === $config['openapi']['backward_compatibility_layer']) {
+            $container->getDefinition('api_platform.swagger.normalizer.documentation')->addArgument($container->getDefinition('api_platform.openapi.normalizer'));
+        }
     }
 
     private function registerJsonApiConfiguration(array $formats, XmlFileLoader $loader): void
@@ -447,6 +474,8 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
             ->addTag('api_platform.graphql.mutation_resolver');
         $container->registerForAutoconfiguration(GraphQlTypeInterface::class)
             ->addTag('api_platform.graphql.type');
+        $container->registerForAutoconfiguration(ErrorHandlerInterface::class)
+            ->addTag('api_platform.graphql.error_handler');
     }
 
     private function registerLegacyBundlesConfiguration(ContainerBuilder $container, array $config, XmlFileLoader $loader): void
@@ -460,6 +489,11 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
 
         if (isset($bundles['NelmioApiDocBundle']) && $config['enable_nelmio_api_doc']) {
             $loader->load('nelmio_api_doc.xml');
+
+            $container->getDefinition('api_platform.nelmio_api_doc.annotations_provider')
+                ->setDeprecated(...$this->buildDeprecationArgs('2.2', 'The "%service_id%" service is deprecated since API Platform 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.'));
+            $container->getDefinition('api_platform.nelmio_api_doc.parser')
+                ->setDeprecated(...$this->buildDeprecationArgs('2.2', 'The "%service_id%" service is deprecated since API Platform 2.2 and will be removed in 3.0. NelmioApiDocBundle 3 has native support for API Platform.'));
         }
     }
 
@@ -473,7 +507,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
             return;
         }
 
-        @trigger_error('The "api_platform.metadata_cache" parameter is deprecated since version 2.4 and will have no effect in 3.0.', E_USER_DEPRECATED);
+        @trigger_error('The "api_platform.metadata_cache" parameter is deprecated since version 2.4 and will have no effect in 3.0.', \E_USER_DEPRECATED);
 
         // BC
         if (!$container->getParameter('api_platform.metadata_cache')) {
@@ -657,6 +691,9 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
     {
         $container->registerForAutoconfiguration(DataTransformerInterface::class)
             ->addTag('api_platform.data_transformer');
+
+        $container->registerForAutoconfiguration(DataTransformerInitializerInterface::class)
+            ->addTag('api_platform.data_transformer');
     }
 
     private function registerSecurityConfiguration(ContainerBuilder $container, XmlFileLoader $loader): void
@@ -667,5 +704,22 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         if (isset($bundles['SecurityBundle'])) {
             $loader->load('security.xml');
         }
+    }
+
+    private function registerOpenApiConfiguration(ContainerBuilder $container, array $config): void
+    {
+        $container->setParameter('api_platform.openapi.termsOfService', $config['openapi']['termsOfService']);
+        $container->setParameter('api_platform.openapi.contact.name', $config['openapi']['contact']['name']);
+        $container->setParameter('api_platform.openapi.contact.url', $config['openapi']['contact']['url']);
+        $container->setParameter('api_platform.openapi.contact.email', $config['openapi']['contact']['email']);
+        $container->setParameter('api_platform.openapi.license.name', $config['openapi']['license']['name']);
+        $container->setParameter('api_platform.openapi.license.url', $config['openapi']['license']['url']);
+    }
+
+    private function buildDeprecationArgs(string $version, string $message): array
+    {
+        return method_exists(Definition::class, 'getDeprecation')
+            ? ['api-platform/core', $version, $message]
+            : [true, $message];
     }
 }

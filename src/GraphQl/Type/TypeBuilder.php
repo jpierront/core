@@ -127,7 +127,6 @@ final class TypeBuilder implements TypeBuilderInterface
                 }
 
                 $fieldsBuilder = $this->fieldsBuilderLocator->get('api_platform.graphql.fields_builder');
-
                 $fields = $fieldsBuilder->getResourceObjectTypeFields($resourceClass, $resourceMetadata, $input, $queryName, $mutationName, $subscriptionName, $depth, $ioMetadata);
 
                 if ($input && null !== $mutationName && null !== $mutationArgs = $resourceMetadata->getGraphql()[$mutationName]['args'] ?? null) {
@@ -218,7 +217,7 @@ final class TypeBuilder implements TypeBuilderInterface
      */
     public function isCollection(Type $type): bool
     {
-        return $type->isCollection() && ($collectionValueType = $type->getCollectionValueType()) && null !== $collectionValueType->getClassName();
+        return $type->isCollection() && ($collectionValueType = method_exists(Type::class, 'getCollectionValueTypes') ? ($type->getCollectionValueTypes()[0] ?? null) : $type->getCollectionValueType()) && null !== $collectionValueType->getClassName();
     }
 
     private function getCursorBasedPaginationFields(GraphQLType $resourceType): array

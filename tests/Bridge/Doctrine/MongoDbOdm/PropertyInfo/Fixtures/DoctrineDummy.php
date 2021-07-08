@@ -102,11 +102,6 @@ class DoctrineDummy
     private $bool;
 
     /**
-     * @Field(type="boolean")
-     */
-    private $boolean;
-
-    /**
      * @Field(type="custom_foo")
      */
     private $customFoo;
@@ -117,11 +112,6 @@ class DoctrineDummy
     private $int;
 
     /**
-     * @Field(type="integer")
-     */
-    private $integer;
-
-    /**
      * @Field(type="string")
      */
     private $string;
@@ -130,11 +120,6 @@ class DoctrineDummy
      * @Field(type="key")
      */
     private $key;
-
-    /**
-     * @Field(type="file")
-     */
-    private $file;
 
     /**
      * @Field(type="hash")

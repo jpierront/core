@@ -21,6 +21,7 @@ use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Tests\Fixtures\DummyIriWithValidationEntity;
 use ApiPlatform\Core\Tests\Fixtures\DummyValidatedEntity;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use Doctrine\Common\Annotations\AnnotationReader;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyInfo\Type;
@@ -33,6 +34,8 @@ use Symfony\Component\Validator\Mapping\Loader\AnnotationLoader;
  */
 class ValidatorPropertyMetadataFactoryTest extends TestCase
 {
+    use ProphecyTrait;
+
     private $validatorClassMetadata;
 
     protected function setUp(): void
@@ -297,7 +300,7 @@ class ValidatorPropertyMetadataFactoryTest extends TestCase
         $schema = $validationPropertyMetadataFactory->create(DummyValidatedEntity::class, 'dummy')->getSchema();
         $this->assertNotNull($schema);
         $this->assertArrayHasKey('pattern', $schema);
-        $this->assertEquals('^dummy$', $schema['pattern']);
+        $this->assertEquals('dummy', $schema['pattern']);
     }
 
     public function testCreateWithPropertyFormatRestriction(): void

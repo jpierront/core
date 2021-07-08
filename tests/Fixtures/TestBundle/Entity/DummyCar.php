@@ -29,7 +29,7 @@ use Symfony\Component\Serializer\Annotation as Serializer;
  *     itemOperations={"get"={"swagger_context"={"tags"={}}, "openapi_context"={"tags"={}}}, "put", "delete"},
  *     attributes={
  *         "sunset"="2050-01-01",
- *         "normalization_context"={"groups"="colors"}
+ *         "normalization_context"={"groups"={"colors"}}
  *     }
  * )
  * @ORM\Entity
@@ -42,11 +42,10 @@ use Symfony\Component\Serializer\Annotation as Serializer;
 class DummyCar
 {
     /**
-     * @var int The entity Id
+     * @var DummyCarIdentifier The entity Id
      *
      * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
+     * @ORM\OneToOne(targetEntity="DummyCarIdentifier", cascade="persist")
      */
     private $id;
 
@@ -85,7 +84,7 @@ class DummyCar
      *
      * @ORM\ManyToMany(targetEntity="UuidIdentifierDummy", indexBy="uuid")
      * * @ORM\JoinTable(name="uuid_cars",
-     *     joinColumns={@ORM\JoinColumn(name="car_id", referencedColumnName="id")},
+     *     joinColumns={@ORM\JoinColumn(name="car_id", referencedColumnName="id_id")},
      *     inverseJoinColumns={@ORM\JoinColumn(name="uuid_uuid", referencedColumnName="uuid")}
      * )
      * @Serializer\Groups({"colors"})
@@ -127,6 +126,7 @@ class DummyCar
 
     public function __construct()
     {
+        $this->id = new DummyCarIdentifier();
         $this->colors = new ArrayCollection();
     }
 

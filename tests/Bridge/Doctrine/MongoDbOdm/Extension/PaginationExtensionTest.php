@@ -23,15 +23,16 @@ use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Test\DoctrineMongoDbOdmSetup;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Document\Dummy;
-use Doctrine\Common\Persistence\ManagerRegistry;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use Doctrine\ODM\MongoDB\Aggregation\Builder;
 use Doctrine\ODM\MongoDB\Aggregation\Stage\Count;
 use Doctrine\ODM\MongoDB\Aggregation\Stage\Facet;
-use Doctrine\ODM\MongoDB\Aggregation\Stage\Match;
+use Doctrine\ODM\MongoDB\Aggregation\Stage\Match as AggregationMatch;
 use Doctrine\ODM\MongoDB\Aggregation\Stage\Skip;
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\Iterator\Iterator;
 use Doctrine\ODM\MongoDB\Repository\DocumentRepository;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -41,6 +42,8 @@ use PHPUnit\Framework\TestCase;
  */
 class PaginationExtensionTest extends TestCase
 {
+    use ProphecyTrait;
+
     private $managerRegistryProphecy;
     private $resourceMetadataFactoryProphecy;
 
@@ -530,7 +533,7 @@ class PaginationExtensionTest extends TestCase
         if ($expectedLimit > 0) {
             $skipProphecy->limit($expectedLimit)->shouldBeCalled();
         } else {
-            $matchProphecy = $this->prophesize(Match::class);
+            $matchProphecy = $this->prophesize(AggregationMatch::class);
             $matchProphecy->field(Paginator::LIMIT_ZERO_MARKER_FIELD)->shouldBeCalled()->willReturn($matchProphecy);
             $matchProphecy->equals(Paginator::LIMIT_ZERO_MARKER)->shouldBeCalled();
             $skipProphecy->match()->shouldBeCalled()->willReturn($matchProphecy->reveal());

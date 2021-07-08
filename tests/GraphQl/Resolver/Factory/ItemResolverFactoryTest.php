@@ -21,6 +21,7 @@ use ApiPlatform\Core\GraphQl\Resolver\Stage\SerializeStageInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\Dummy;
+use ApiPlatform\Core\Tests\ProphecyTrait;
 use GraphQL\Type\Definition\ResolveInfo;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -31,6 +32,8 @@ use Psr\Container\ContainerInterface;
  */
 class ItemResolverFactoryTest extends TestCase
 {
+    use ProphecyTrait;
+
     private $itemResolverFactory;
     private $readStageProphecy;
     private $securityStageProphecy;
@@ -113,6 +116,15 @@ class ItemResolverFactoryTest extends TestCase
         $info->fieldName = 'nested';
 
         $this->assertSame(['already_serialized'], ($this->itemResolverFactory)('resourceClass')($source, [], null, $info));
+    }
+
+    public function testResolveNestedNullValue(): void
+    {
+        $source = ['nestedNullValue' => null];
+        $info = $this->prophesize(ResolveInfo::class)->reveal();
+        $info->fieldName = 'nestedNullValue';
+
+        $this->assertNull(($this->itemResolverFactory)('resourceClass')($source, [], null, $info));
     }
 
     public function testResolveBadReadStageItem(): void

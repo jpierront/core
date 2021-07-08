@@ -17,7 +17,8 @@ use ApiPlatform\Core\Tests\Fixtures\TestBundle\Entity\User;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\TestBundle;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Doctrine\Bundle\MongoDBBundle\DoctrineMongoDBBundle;
-use FOS\UserBundle\FOSUserBundle;
+use Doctrine\Common\Inflector\Inflector;
+use FriendsOfBehat\SymfonyExtension\Bundle\FriendsOfBehatSymfonyExtensionBundle;
 use Nelmio\ApiDocBundle\NelmioApiDocBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -28,9 +29,11 @@ use Symfony\Bundle\WebProfilerBundle\WebProfilerBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\ErrorHandler\ErrorRenderer\ErrorRendererInterface;
+use Symfony\Component\HttpFoundation\Session\SessionFactory;
 use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\PasswordHasher\Hasher\NativePasswordHasher;
+use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Symfony\Component\Routing\RouteCollectionBuilder;
-use Symfony\Component\Security\Core\Encoder\NativePasswordEncoder;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
@@ -48,31 +51,37 @@ class AppKernel extends Kernel
 
         // patch for behat/symfony2-extension not supporting %env(APP_ENV)%
         $this->environment = $_SERVER['APP_ENV'] ?? $environment;
+
+        // patch for old versions of Doctrine Inflector, to delete when we'll drop support for v1
+        // see https://github.com/doctrine/inflector/issues/147#issuecomment-628807276
+        if (class_exists(Inflector::class)) {
+            Inflector::rules('plural', ['/taxon/i' => 'taxa']);
+        }
     }
 
     public function registerBundles(): array
     {
         $bundles = [
-            new FrameworkBundle(),
+            new ApiPlatformBundle(),
             new TwigBundle(),
             new DoctrineBundle(),
             new MercureBundle(),
-            new ApiPlatformBundle(),
             new SecurityBundle(),
-            new FOSUserBundle(),
             new WebProfilerBundle(),
+            new FriendsOfBehatSymfonyExtensionBundle(),
+            new FrameworkBundle(),
         ];
 
         if (class_exists(DoctrineMongoDBBundle::class)) {
             $bundles[] = new DoctrineMongoDBBundle();
         }
 
-        if ('elasticsearch' !== $this->getEnvironment()) {
-            $bundles[] = new TestBundle();
+        if (class_exists(NelmioApiDocBundle::class)) {
+            $bundles[] = new NelmioApiDocBundle();
         }
 
-        if ($_SERVER['LEGACY'] ?? false) {
-            $bundles[] = new NelmioApiDocBundle();
+        if ('elasticsearch' !== $this->getEnvironment()) {
+            $bundles[] = new TestBundle();
         }
 
         return $bundles;
@@ -83,11 +92,14 @@ class AppKernel extends Kernel
         return __DIR__;
     }
 
-    protected function configureRoutes(RouteCollectionBuilder $routes)
+    /**
+     * @param RoutingConfigurator|RouteCollectionBuilder $routes
+     */
+    protected function configureRoutes($routes)
     {
         $routes->import(__DIR__."/config/routing_{$this->getEnvironment()}.yml");
 
-        if ($_SERVER['LEGACY'] ?? false) {
+        if (class_exists(NelmioApiDocBundle::class)) {
             $routes->import('@NelmioApiDocBundle/Resources/config/routing.yml', '/nelmioapidoc');
         }
     }
@@ -98,7 +110,26 @@ class AppKernel extends Kernel
 
         $loader->load(__DIR__."/config/config_{$this->getEnvironment()}.yml");
 
-        $alg = class_exists(NativePasswordEncoder::class) ? 'auto' : 'bcrypt';
+        $c->prependExtensionConfig('framework', [
+            'secret' => 'dunglas.fr',
+            'validation' => ['enable_annotations' => true],
+            'serializer' => ['enable_annotations' => true],
+            'test' => null,
+            'session' => class_exists(SessionFactory::class) ? ['storage_factory_id' => 'session.storage.factory.mock_file'] : ['storage_id' => 'session.storage.mock_file'],
+            'profiler' => [
+                'enabled' => true,
+                'collect' => false,
+            ],
+            'messenger' => [
+                'default_bus' => 'messenger.bus.default',
+                'buses' => [
+                    'messenger.bus.default' => ['default_middleware' => 'allow_no_handlers'],
+                ],
+            ],
+            'router' => ['utf8' => true],
+        ]);
+
+        $alg = class_exists(NativePasswordHasher::class) || class_exists('Symfony\Component\Security\Core\Encoder\NativePasswordEncoder') ? 'auto' : 'bcrypt';
         $securityConfig = [
             'encoders' => [
                 User::class => $alg,
@@ -109,7 +140,7 @@ class AppKernel extends Kernel
             'providers' => [
                 'chain_provider' => [
                     'chain' => [
-                        'providers' => ['in_memory', 'fos_userbundle'],
+                        'providers' => ['in_memory', 'entity'],
                     ],
                 ],
                 'in_memory' => [
@@ -120,7 +151,12 @@ class AppKernel extends Kernel
                         ],
                     ],
                 ],
-                'fos_userbundle' => ['id' => 'fos_user.user_provider.username_email'],
+                'entity' => [
+                    'entity' => [
+                        'class' => User::class,
+                        'property' => 'email',
+                    ],
+                ],
             ],
             'firewalls' => [
                 'dev' => [
@@ -160,7 +196,7 @@ class AppKernel extends Kernel
         }
         $c->prependExtensionConfig('twig', $twigConfig);
 
-        if ($_SERVER['LEGACY'] ?? false) {
+        if (class_exists(NelmioApiDocBundle::class)) {
             $c->prependExtensionConfig('nelmio_api_doc', [
                 'sandbox' => [
                     'accept_type' => 'application/json',

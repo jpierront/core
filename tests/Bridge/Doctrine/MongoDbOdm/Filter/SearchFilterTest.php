@@ -21,7 +21,8 @@ use ApiPlatform\Core\Test\DoctrineMongoDbOdmFilterTestCase;
 use ApiPlatform\Core\Tests\Bridge\Doctrine\Common\Filter\SearchFilterTestTrait;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Document\RelatedDummy;
 use ApiPlatform\Core\Tests\Fixtures\TestBundle\Serializer\NameConverter\CustomConverter;
-use Doctrine\Common\Persistence\ManagerRegistry;
+use ApiPlatform\Core\Tests\ProphecyTrait;
+use Doctrine\Persistence\ManagerRegistry;
 use MongoDB\BSON\Regex;
 use Prophecy\Argument;
 
@@ -32,6 +33,7 @@ use Prophecy\Argument;
  */
 class SearchFilterTest extends DoctrineMongoDbOdmFilterTestCase
 {
+    use ProphecyTrait;
     use SearchFilterTestTrait;
 
     protected $filterClass = SearchFilter::class;
@@ -303,6 +305,20 @@ class SearchFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     ],
                     $filterFactory,
                 ],
+                'exact (case insensitive, with special characters)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('^exact \(special\)$', 'i'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
                 'exact (multiple values)' => [
                     [
                         [
@@ -379,6 +395,36 @@ class SearchFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     ],
                     $filterFactory,
                 ],
+                'partial (multiple values)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('CaSE'),
+                                        new Regex('SENSitive'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
+                'partial (multiple values; case insensitive)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('CaSE', 'i'),
+                                        new Regex('inSENSitive', 'i'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
                 'start' => [
                     [
                         [
@@ -400,6 +446,36 @@ class SearchFilterTest extends DoctrineMongoDbOdmFilterTestCase
                                 'name' => [
                                     '$in' => [
                                         new Regex('^partial', 'i'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
+                'start (multiple values)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('^CaSE'),
+                                        new Regex('^SENSitive'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
+                'start (multiple values; case insensitive)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('^CaSE', 'i'),
+                                        new Regex('^inSENSitive', 'i'),
                                     ],
                                 ],
                             ],
@@ -435,6 +511,36 @@ class SearchFilterTest extends DoctrineMongoDbOdmFilterTestCase
                     ],
                     $filterFactory,
                 ],
+                'end (multiple values)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('CaSE$'),
+                                        new Regex('SENSitive$'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
+                'end (multiple values; case insensitive)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('CaSE$', 'i'),
+                                        new Regex('inSENSitive$', 'i'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
                 'word_start' => [
                     [
                         [
@@ -456,6 +562,36 @@ class SearchFilterTest extends DoctrineMongoDbOdmFilterTestCase
                                 'name' => [
                                     '$in' => [
                                         new Regex('(^partial.*|.*\spartial.*)', 'i'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
+                'word_start (multiple values)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('(^CaSE.*|.*\sCaSE.*)'),
+                                        new Regex('(^SENSitive.*|.*\sSENSitive.*)'),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    $filterFactory,
+                ],
+                'word_start (multiple values; case insensitive)' => [
+                    [
+                        [
+                            '$match' => [
+                                'name' => [
+                                    '$in' => [
+                                        new Regex('(^CaSE.*|.*\sCaSE.*)', 'i'),
+                                        new Regex('(^inSENSitive.*|.*\sinSENSitive.*)', 'i'),
                                     ],
                                 ],
                             ],
@@ -548,6 +684,10 @@ class SearchFilterTest extends DoctrineMongoDbOdmFilterTestCase
                             ],
                         ],
                     ],
+                    $filterFactory,
+                ],
+                'empty nested property' => [
+                    [],
                     $filterFactory,
                 ],
             ]

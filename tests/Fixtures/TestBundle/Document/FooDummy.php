@@ -26,7 +26,7 @@ use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
  *         "order"={"dummy.name"}
  *     },
  *     graphql={
- *         "collection_query"={"paginationType"="page"}
+ *         "collection_query"={"pagination_type"="page"}
  *     }
  * )
  * @ODM\Document
@@ -36,7 +36,7 @@ class FooDummy
     /**
      * @var int The id
      *
-     * @ODM\Id(strategy="INCREMENT", type="integer")
+     * @ODM\Id(strategy="INCREMENT", type="int")
      */
     private $id;
 

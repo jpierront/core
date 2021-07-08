@@ -1,17 +1,3 @@
-framework:
-    secret:                           'dunglas.fr'
-    validation:
-        enable_annotations:            true
-    serializer:
-        enable_annotations:            true
-    test:                              ~
-    session:
-        storage_id:                    'session.storage.mock_file'
-    form:                              ~ # For FOSUser
-    profiler:
-        enabled:                        true
-        collect:                        false
-
 web_profiler:
     toolbar: true
     intercept_redirects: false
@@ -22,7 +8,8 @@ doctrine:
         path:                         '%kernel.cache_dir%/db.sqlite'
         charset:                      'UTF8'
         types:
-            uuid:  Ramsey\Uuid\Doctrine\UuidType
+            uuid: Ramsey\Uuid\Doctrine\UuidType
+            uuid_binary: Ramsey\Uuid\Doctrine\UuidBinaryType
 
     orm:
         auto_generate_proxy_classes:   '%kernel.debug%'
@@ -57,7 +44,9 @@ api_platform:
         enabled: true
         nesting_separator: __
     name_converter:                    'app.name_converter'
-    enable_fos_user:                   true
+    collection:
+        order_parameter_name:          'order'
+        order:                         'ASC'
     exception_to_status:
         Symfony\Component\Serializer\Exception\ExceptionInterface: !php/const Symfony\Component\HttpFoundation\Response::HTTP_BAD_REQUEST
         ApiPlatform\Core\Exception\InvalidArgumentException: !php/const Symfony\Component\HttpFoundation\Response::HTTP_BAD_REQUEST
@@ -65,6 +54,8 @@ api_platform:
     http_cache:
         invalidation:
             enabled: true
+    openapi:
+        backward_compatibility_layer: false
     defaults:
         pagination_client_enabled:            true
         pagination_client_items_per_page:     true
@@ -122,9 +113,6 @@ services:
         tags:
             -  { name: 'serializer.normalizer' }
 
-    fos_user.mailer.default:
-        class: 'ApiPlatform\Core\Tests\Mock\FosUser\MailerMock'
-
     app.name_converter:
         class: 'ApiPlatform\Core\Tests\Fixtures\TestBundle\Serializer\NameConverter\CustomConverter'
 
@@ -158,6 +146,8 @@ services:
 
     ApiPlatform\Core\Tests\Fixtures\TestBundle\Controller\:
         resource: '../../TestBundle/Controller'
+        autowire: true
+        autoconfigure: true
         tags: ['controller.service_arguments']
 
     ApiPlatform\Core\Tests\Fixtures\TestBundle\Filter\EnumFilter:
@@ -255,6 +245,12 @@ services:
         tags:
             -  { name: 'api_platform.data_transformer' }
 
+    app.data_transformer.custom_output_dto_fallback_same_class:
+        class: 'ApiPlatform\Core\Tests\Fixtures\TestBundle\DataTransformer\OutputDtoSameClassTransformer'
+        public: false
+        tags:
+            - { name: 'api_platform.data_transformer' }
+
     app.data_transformer.input_dto:
         class: 'ApiPlatform\Core\Tests\Fixtures\TestBundle\DataTransformer\InputDtoDataTransformer'
         public: false
@@ -281,6 +277,12 @@ services:
 
     app.data_transformer.recover_password_output:
         class: 'ApiPlatform\Core\Tests\Fixtures\TestBundle\DataTransformer\RecoverPasswordOutputDataTransformer'
+        public: false
+        tags:
+            -  { name: 'api_platform.data_transformer' }
+
+    app.data_transformer.initialize_input:
+        class: 'ApiPlatform\Core\Tests\Fixtures\TestBundle\DataTransformer\InitializeInputDataTransformer'
         public: false
         tags:
             -  { name: 'api_platform.data_transformer' }
@@ -350,3 +352,10 @@ services:
         decorates: 'api_platform.graphql.type_converter'
         arguments: ['@app.graphql.type_converter.inner']
         public: false
+
+    app.data_transformer.rpc_output:
+        class: 'ApiPlatform\Core\Tests\Fixtures\TestBundle\DataTransformer\RPCOutputDataTransformer'
+        public: false
+        tags:
+            -  { name: 'api_platform.data_transformer' }
+

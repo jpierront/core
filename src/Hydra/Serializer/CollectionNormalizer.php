@@ -86,20 +86,17 @@ final class CollectionNormalizer implements NormalizerInterface, NormalizerAware
         }
 
         $data['@type'] = 'hydra:Collection';
-
         $data['hydra:member'] = [];
         $iriOnly = $context[self::IRI_ONLY] ?? $this->defaultContext[self::IRI_ONLY];
         foreach ($object as $obj) {
-            $data['hydra:member'][] = $iriOnly ? ['@id' => $this->iriConverter->getIriFromItem($obj)] : $this->normalizer->normalize($obj, $format, $context);
+            $data['hydra:member'][] = $iriOnly ? $this->iriConverter->getIriFromItem($obj) : $this->normalizer->normalize($obj, $format, $context);
         }
 
-        $paginated = null;
-        if (
-            \is_array($object) ||
-            ($paginated = $object instanceof PaginatorInterface) ||
-            $object instanceof \Countable && !$object instanceof PartialPaginatorInterface
-        ) {
-            $data['hydra:totalItems'] = $paginated ? $object->getTotalItems() : \count($object);
+        if ($object instanceof PaginatorInterface) {
+            $data['hydra:totalItems'] = $object->getTotalItems();
+        }
+        if (\is_array($object) || ($object instanceof \Countable && !$object instanceof PartialPaginatorInterface)) {
+            $data['hydra:totalItems'] = \count($object);
         }
 
         return $data;

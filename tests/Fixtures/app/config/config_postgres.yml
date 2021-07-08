@@ -3,7 +3,7 @@ imports:
 
 parameters:
     env(DATABASE_URL): postgres://postgres:@localhost/api_platform_test
-    env(POSTGRES_VERSION): '10'
+    env(POSTGRES_VERSION): '12'
 
 doctrine:
     dbal:
@@ -13,3 +13,4 @@ doctrine:
         server_version: '%env(POSTGRES_VERSION)%'
         types:
             uuid: Ramsey\Uuid\Doctrine\UuidType
+            uuid_binary: Ramsey\Uuid\Doctrine\UuidBinaryType

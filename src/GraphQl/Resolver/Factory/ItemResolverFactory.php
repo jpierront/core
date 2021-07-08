@@ -35,8 +35,8 @@ use Psr\Container\ContainerInterface;
  */
 final class ItemResolverFactory implements ResolverFactoryInterface
 {
-    use CloneTrait;
     use ClassInfoTrait;
+    use CloneTrait;
 
     private $readStage;
     private $securityStage;
@@ -59,7 +59,7 @@ final class ItemResolverFactory implements ResolverFactoryInterface
     {
         return function (?array $source, array $args, $context, ResolveInfo $info) use ($resourceClass, $rootClass, $operationName) {
             // Data already fetched and normalized (field or nested resource)
-            if (isset($source[$info->fieldName])) {
+            if ($source && \array_key_exists($info->fieldName, $source)) {
                 return $source[$info->fieldName];
             }
 
